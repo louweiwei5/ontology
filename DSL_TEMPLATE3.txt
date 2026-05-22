@@ -1,0 +1,51 @@
+{
+  "query": {
+    "target": "String (业务对象名称, 如 Category)",
+    "filter":{ 
+      "logic":"AND",  // 逻辑运算符
+      "conditions":[
+      {
+        "field": "String (属性名)",
+        "operator": "Enum (EQ, NEQ, GT, GTE,LT,LTE,LIKE, IN, NOT_IN,IS_NULL,IS_NOT_NULL)",
+        "value": "Any (值)"
+      },{
+      "logic":"AND",  // 逻辑运算符
+      "conditions":[{
+        "path": ["hasAttribute"], // 路径：从当前对象出发经过的关系
+        "field": "data_type", // 目标属性：关联对象的字段
+        "operator": "EQ",
+ ????   "value": "Float"
+      },{
+        "path": ["hasAttribute", "hasSupplier"],     //两级路径：
+        "field": "supplier_name",
+        "operator": "EQ",
+        "value": "西门子"
+      }]
+     }
+    ]
+    },
+    "selection": [
+      "String (直接字段名)",
+      {
+        "relation": "String (业务关系名, 如 hasAttribute)",
+        "nested_fields": ["String (关联对象的字段)"]
+      }
+    ],
+    "aggregation": {  // 聚合
+      "groupBy": ["category_id"],
+      "metrics": [{"function": "COUNT", "field": "id", "alias": "total"}]
+    },
+    // ===== 聚合后过滤 =====
+    "having": [
+      {
+        "property": "string, 聚合后的属性别名",
+        "operator": "GT | GTE | LT | LTE | EQ | NEQ",
+        "value": "number"
+      }
+    ],
+    "pagination": {  // 规范分页
+      "page": 1,
+      "size": 20
+    }
+  }
+}

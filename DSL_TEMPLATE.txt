@@ -1,0 +1,106 @@
+{
+  "query": {
+    "name": "string, 查询名称(可选)",
+    "description": "string, 查询说明(可选)",
+    
+    // ===== 主实体定义 =====
+    "subject": {
+      "entity": "string, 本体中的实体类型, 如 Person, Order, Product",
+      "alias": "string, 实体别名(可选)",
+      "id": "string|array, 指定实体实例ID(可选, 用于已知ID的直接查询)"
+    },
+    
+    // ===== 属性投影 =====
+    "projection": [
+      {
+        "entity": "string, 实体别名或实体类型, 默认为subject",
+        "property": "string, 本体中的属性名, 如 name, age, price",
+        "alias": "string, 输出列名(可选)",
+        "aggregation": "COUNT | SUM | AVG | MIN | MAX | COUNT_DISTINCT",
+        "expression": "string, 表达式(可选, 用于计算属性)"
+      }
+    ],
+    
+    // ===== 关联遍历 =====
+    "traversal": [
+      {
+        "from": "string, 起始实体别名",
+        "to": "string, 目标实体别名",
+        "relation": "string, 本体中的关系类型, 如 owns, belongs_to, works_for",
+        "direction": "OUT | IN | BOTH",
+        "cardinality": "ONE | MANY",
+        "optional": "boolean, 是否为左连接, 默认false",
+        
+        // 关联过滤(在关系上过滤)
+        "filters": {
+          "logic": "AND | OR",
+          "conditions": [
+            {
+              "property": "string, 目标实体的属性",
+              "operator": "EQ | NEQ | GT | GTE | LT | LTE | IN | NOT_IN | BETWEEN | CONTAINS | STARTS_WITH | ENDS_WITH | IS_NULL | IS_NOT_NULL",
+              "value": "any, 过滤值",
+              "valueType": "STRING | NUMBER | DATE | BOOLEAN"
+            }
+          ]
+        }
+      }
+    ],
+    
+    // ===== 全局过滤条件 =====
+    "filters": {
+      "logic": "AND | OR",
+      "conditions": [
+        {
+          "entity": "string, 实体别名, 默认为subject",
+          "property": "string, 本体属性名",
+          "operator": "EQ | NEQ | GT | GTE | LT | LTE | IN | NOT_IN | BETWEEN | CONTAINS | STARTS_WITH | ENDS_WITH | IS_NULL | IS_NOT_NULL",
+          "value": "any",
+          "valueType": "STRING | NUMBER | DATE | BOOLEAN"
+        }
+      ],
+      "groups": [
+        {
+          "logic": "AND | OR",
+          "conditions": [...]
+        }
+      ]
+    },
+    
+    // ===== 聚合后过滤 =====
+    "having": [
+      {
+        "property": "string, 聚合后的属性别名",
+        "operator": "GT | GTE | LT | LTE | EQ | NEQ",
+        "value": "number"
+      }
+    ],
+    
+    // ===== 排序 =====
+    "orderBy": [
+      {
+        "property": "string, 属性别名或本体属性名",
+        "direction": "ASC | DESC",
+        "nulls": "FIRST | LAST"
+      }
+    ],
+    
+    // ===== 分页 =====
+    "pagination": {
+      "page": "number, 页码(从1开始)",
+      "pageSize": "number, 每页数量",
+      "offset": "number, 偏移量(与page二选一)",
+      "limit": "number, 限制数量(与pageSize二选一)"
+    },
+    
+    // ===== 去重 =====
+    "distinct": "boolean, 是否去重, 默认false",
+    
+    // ===== 语义选项 =====
+    "options": {
+      "includeDeleted": "boolean, 是否包含已删除实例",
+      "includeInactive": "boolean, 是否包含未激活实例",
+      "timeTravel": "string, 时间旅行点(ISO 8601格式)",
+      "cacheTtl": "number, 缓存时间(秒)"
+    }
+  }
+}
