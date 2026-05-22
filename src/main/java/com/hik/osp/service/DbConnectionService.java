@@ -10,6 +10,7 @@ import com.hik.osp.entity.*;
 import com.hik.osp.exception.BadRequestException;
 import com.hik.osp.exception.ResourceNotFoundException;
 import com.hik.osp.repository.*;
+import com.hik.osp.util.IriUtils;
 import com.hik.osp.util.NamingUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -364,7 +365,7 @@ public class DbConnectionService {
                         ClassEntity newCls = new ClassEntity();
                         newCls.setOntologyId(ti.getOntologyId());
                         newCls.setName(tbl.getClassName());
-                        newCls.setFullIri(ontology.getNamespace() + tbl.getClassName());
+                        newCls.setFullIri(IriUtils.buildFullIri(ontology.getNamespace(), tbl.getClassName()));
                         newCls.setDescription(tbl.getTableComment() != null && !tbl.getTableComment().isEmpty()
                                 ? tbl.getTableComment() : null);
                         return classRepository.save(newCls);
@@ -382,7 +383,7 @@ public class DbConnectionService {
                 PropertyEntity prop = new PropertyEntity();
                 prop.setOntologyId(ti.getOntologyId());
                 prop.setName(colMap.getPropertyName());
-                prop.setFullIri(ontology.getNamespace() + colMap.getPropertyName());
+                prop.setFullIri(IriUtils.buildFullIri(ontology.getNamespace(), colMap.getPropertyName()));
                 prop.setPropertyType(com.hik.osp.enums.PropertyType.DATA);
                 if (colMap.getDataType() != null) {
                     prop.setDataType(com.hik.osp.enums.DataType.fromValue(colMap.getDataType()));
