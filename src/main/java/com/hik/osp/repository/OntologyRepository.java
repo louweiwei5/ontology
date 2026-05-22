@@ -9,5 +9,6 @@ import java.util.Optional;
 @Repository
 public interface OntologyRepository extends JpaRepository<OntologyEntity, String> {
     Optional<OntologyEntity> findByName(String name);
+    Optional<OntologyEntity> findByNameAndNamespace(String name, String namespace);
     boolean existsByName(String name);
 }

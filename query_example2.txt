@@ -1,0 +1,41 @@
+{
+  "ontology": {
+    "name": "Products",
+    "namespace": "com.hikvision.ontology",
+    "version": "1.0.0",
+    "description": "海康威视产品信息本体示例"
+  },
+  "query": {
+    "target": "ProductCategory",
+    "filter": {
+      "logic": "AND",
+      "conditions": [
+        {
+          "field": "label",
+          "operator": "EQ",
+          "value": "后端NVR"
+        }
+      ]
+    },
+    "selection": [
+      "id",
+      "name",
+      "label",
+      {
+        "relation": "hasAttribute",
+        "nested_fields": [
+          "id",
+          "attrName",
+          "label",
+          "dataType",
+          "unit",
+          "synonyms"
+        ]
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "size": 20
+    }
+  }
+}

@@ -9,12 +9,12 @@
         "operator": "Enum (EQ, NEQ, GT, GTE,LT,LTE,LIKE, IN, NOT_IN,IS_NULL,IS_NOT_NULL)",
         "value": "Any (值)"
       },{
-      "logic":"AND",  // 逻辑运算符
+      "logic":"OR",  // 逻辑运算符
       "conditions":[{
         "path": ["hasAttribute"], // 路径：从当前对象出发经过的关系
         "field": "data_type", // 目标属性：关联对象的字段
         "operator": "EQ",
- ????   "value": "Float"
+        "value": "Float"
       },{
         "path": ["hasAttribute", "hasSupplier"],     //两级路径：
         "field": "supplier_name",

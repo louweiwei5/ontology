@@ -126,67 +126,46 @@ export async function executeSparql(ontologyId: string, query: string): Promise<
 // ─── DSL Query types ───
 
 export interface DslQueryRequest {
-  ontology_id: string
+  ontology: {
+    name: string
+    namespace?: string
+    version?: string
+  }
   query: {
-    name?: string
-    description?: string
-    subject: DslSubject
-    projection?: DslProjection[]
-    filters?: DslFilterGroup
-    traversal?: DslTraversal[]
-    orderBy?: DslOrderBy[]
-    pagination?: DslPagination
-    distinct?: boolean
+    target: string
+    alias?: string
+    select?: (string | SelectItem)[]
+    filter?: FilterGroup
+    pagination?: Pagination
   }
 }
 
-export interface DslSubject {
-  entity: string
-  alias?: string
-  id?: string | string[]
-}
-
-export interface DslProjection {
-  entity?: string
-  property: string
+export interface SelectItem {
+  field: string
+  path?: string[]
   alias?: string
   aggregation?: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX' | 'COUNT_DISTINCT'
   expression?: string
+  relation?: string
+  nestedFields?: string[]
 }
 
-export interface DslFilterGroup {
+export interface FilterGroup {
   logic?: 'AND' | 'OR'
-  conditions?: DslFilterCondition[]
-  groups?: DslFilterGroup[]
+  conditions: (FilterCondition | FilterGroup)[]
 }
 
-export interface DslFilterCondition {
-  entity?: string
-  property: string
+export interface FilterCondition {
+  path?: string[]
+  field: string
   operator: string
   value?: any
   valueType?: 'STRING' | 'NUMBER' | 'DATE' | 'BOOLEAN'
 }
 
-export interface DslTraversal {
-  from: string
-  to: string
-  relation: string
-  direction?: 'OUT' | 'IN' | 'BOTH'
-  cardinality?: 'ONE' | 'MANY'
-  optional?: boolean
-  filters?: DslFilterGroup
-}
-
-export interface DslOrderBy {
-  property: string
-  direction?: 'ASC' | 'DESC'
-  nulls?: 'FIRST' | 'LAST'
-}
-
-export interface DslPagination {
+export interface Pagination {
   page?: number
-  pageSize?: number
+  size?: number
   offset?: number
   limit?: number
 }

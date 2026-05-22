@@ -1,0 +1,57 @@
+{
+  "ontology": {
+    "name": "Products",
+    "namespace": "com.hikvision.ontology",
+    "version": "1.0.0",
+    "description": "Demo product information ontology"
+  },
+  "query": {
+    "target": "Product",
+    "filter": {
+      "logic": "AND",
+      "conditions": [
+        {
+          "field": "name",
+          "operator": "EQ",
+          "value": "DS-2CD2T47G2-L"
+        }
+      ]
+    },
+    "selection": [
+      "id",
+      "name",
+      "description",
+      "categoryId",
+      {
+        "relation": "belongTo",
+        "nested_fields": ["id", "name", "label"]
+      },
+      {
+        "relation": "hasValue",
+        "nested_fields": [
+          "id",
+          "valueNumeric",
+          "valueUnit",
+          "valueString",
+          "productId",
+          "attrDefId",
+          {
+            "relation": "refAttribute",
+            "nested_fields": [
+              "id",
+              "attrName",
+              "label",
+              "dataType",
+              "unit",
+              "synonyms"
+            ]
+          }
+        ]
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "size": 20
+    }
+  }
+}
