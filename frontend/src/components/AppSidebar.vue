@@ -40,9 +40,23 @@ const isActive = (path: string) => route.path === path
       </div>
 
       <div class="nav-section">
+        <router-link to="/agents" class="nav-section-title" :class="{ active: isActive('/agents') }">
+          <span class="icon">🤖</span>
+          Agent 交互
+        </router-link>
+      </div>
+
+      <div class="nav-section">
         <router-link to="/services/semantic-query" class="nav-section-title" :class="{ active: isActive('/services/semantic-query') }">
           <span class="icon">🔌</span>
           对外服务
+        </router-link>
+      </div>
+
+      <div class="nav-section">
+        <router-link to="/model-configs" class="nav-section-title" :class="{ active: isActive('/model-configs') }">
+          <span class="icon">⚙️</span>
+          模型配置
         </router-link>
       </div>
 

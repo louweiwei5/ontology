@@ -63,6 +63,9 @@ public class PropertyEntity {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "is_primary_key")
+    private Boolean primaryKey;
+
     @Column(name = "mapping_rules", columnDefinition = "TEXT")
     private String mappingRules;
 

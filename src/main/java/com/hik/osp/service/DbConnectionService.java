@@ -259,6 +259,7 @@ public class DbConnectionService {
                                 .propertyName(NamingUtils.toCamelCase(colName))
                                 .dataType(dt)
                                 .columnComment(comment != null ? comment : "")
+                                .primaryKey(pkCols.contains(colName))
                                 .build());
                     }
                 }
@@ -391,6 +392,7 @@ public class DbConnectionService {
                 prop.setDomainClassId(cls.getId());
                 prop.setDescription(colMap.getColumnComment() != null && !colMap.getColumnComment().isEmpty()
                         ? colMap.getColumnComment() : null);
+                prop.setPrimaryKey(colMap.isPrimaryKey());
                 propertyRepository.save(prop);
             }
         }

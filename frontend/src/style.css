@@ -218,6 +218,13 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 .btn-danger:hover { background: #dc2626; }
 
+.btn-accent {
+  background: #4f46e5;
+  color: #fff;
+  border-color: #4f46e5;
+}
+.btn-accent:hover { background: #4338ca; }
+
 .btn-sm { padding: 4px 10px; font-size: 12px; }
 .btn-icon { padding: 6px 8px; min-width: 32px; justify-content: center; }
 .btn-icon-sm { padding: 3px 6px; min-width: 26px; font-size: 12px; }

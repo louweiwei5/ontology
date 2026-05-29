@@ -14,4 +14,5 @@ public class ColumnMapping {
     private String propertyName;
     private String dataType;
     private String columnComment;
+    private boolean primaryKey;
 }

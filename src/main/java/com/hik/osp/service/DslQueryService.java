@@ -51,6 +51,7 @@ public class DslQueryService {
         String className;
         String tableName;
         String dbConnectionId;
+        String primaryKeyColumn;
         Map<String, String> propToCol;
         Map<String, String> colToProp;
     }
@@ -159,7 +160,7 @@ public class DslQueryService {
         List<String> columns = new ArrayList<>();
 
         sb.append("SELECT ");
-        buildSelect(q.getSelection(), pathResults, entityAliasMap, entityLookup, sb, columns, false);
+        buildSelect(q.getSelection(), pathResults, entityAliasMap, entityLookup, sb, columns, true);
 
         sb.append(fromJoinSql);
 
@@ -343,9 +344,14 @@ public class DslQueryService {
 
         List<Map<String, Object>> nestedData = buildNestedRows(flatRows, idProp, columns, relationSelectItems);
 
+        // Derive columns from nested structure (top-level keys)
+        List<String> outputColumns = nestedData.isEmpty() ? Collections.emptyList()
+                : new ArrayList<>(nestedData.get(0).keySet());
+
         int returnedRows = nestedData.size();
         return DslQueryResponse.builder()
                 .data(nestedData)
+                .columns(outputColumns)
                 .total(totalCount)
                 .sql(dataSql)
                 .message("Query executed successfully" + (returnedRows > 0 ? ", returned " + returnedRows + " rows" : ""))
@@ -682,18 +688,30 @@ public class DslQueryService {
 
         if (isManyToMany) {
             String jAlias = "j" + toAlias.substring(1);
+            // First JOIN: fromAlias → junction table
             sb.append(joinType).append(quoteId(rel.junctionTableName)).append(" ").append(jAlias);
             sb.append(" ON ");
             if (isIn) {
-                sb.append(fromAlias).append(".").append(quoteId(resolveColumn(rel.junctionRangeColumn, toInfo)))
+                // Traversing IN: fromAlias is the target/range entity
+                sb.append(fromAlias).append(".").append(quoteId(resolveJunctionColumn(rel.junctionRangeColumn, fromInfo)))
                         .append(" = ").append(jAlias).append(".").append(quoteId(rel.junctionRangeColumn));
             } else {
-                sb.append(fromAlias).append(".").append(quoteId(resolveColumn(rel.junctionDomainColumn, fromInfo)))
+                // Traversing OUT: fromAlias is the source/domain entity
+                sb.append(fromAlias).append(".").append(quoteId(resolveJunctionColumn(rel.junctionDomainColumn, fromInfo)))
                         .append(" = ").append(jAlias).append(".").append(quoteId(rel.junctionDomainColumn));
             }
+            // Second JOIN: junction table → toAlias
             sb.append(joinType).append(quoteId(toInfo.tableName)).append(" ").append(toAlias);
-            sb.append(" ON ").append(jAlias).append(".").append(quoteId(rel.junctionRangeColumn))
-                    .append(" = ").append(toAlias).append(".").append(quoteId(resolveColumn(rel.junctionRangeColumn, toInfo)));
+            sb.append(" ON ");
+            if (isIn) {
+                // toAlias is the source/domain entity, match via junctionDomainColumn
+                sb.append(jAlias).append(".").append(quoteId(rel.junctionDomainColumn))
+                        .append(" = ").append(toAlias).append(".").append(quoteId(resolveJunctionColumn(rel.junctionDomainColumn, toInfo)));
+            } else {
+                // toAlias is the target/range entity, match via junctionRangeColumn
+                sb.append(jAlias).append(".").append(quoteId(rel.junctionRangeColumn))
+                        .append(" = ").append(toAlias).append(".").append(quoteId(resolveJunctionColumn(rel.junctionRangeColumn, toInfo)));
+            }
         } else {
             if (rel.mappingRules == null || rel.mappingRules.isEmpty()) {
                 throw new BadRequestException("Relation '" + rel.name + "' has no mapping rules for JOIN");
@@ -938,11 +956,15 @@ public class DslQueryService {
 
     private String findIdColumn(EntityInfo info) {
         if (info == null) return "id";
+        // Use the primary key column recorded during table import
+        if (info.primaryKeyColumn != null) return info.primaryKeyColumn;
+        // Fallback: look for property "id"
         for (Map.Entry<String, String> e : info.propToCol.entrySet()) {
             if ("id".equalsIgnoreCase(e.getKey())) {
                 return e.getValue();
             }
         }
+        // Fallback: look for column "id"
         for (String col : info.colToProp.keySet()) {
             if ("id".equalsIgnoreCase(col)) return col;
         }
@@ -951,6 +973,12 @@ public class DslQueryService {
 
     private String findIdProperty(EntityInfo info) {
         if (info == null) return "id";
+        // Use the primary key column and map it back to property
+        if (info.primaryKeyColumn != null) {
+            String prop = info.colToProp.get(info.primaryKeyColumn);
+            if (prop != null) return prop;
+        }
+        // Fallback: look for property "id"
         for (Map.Entry<String, String> e : info.propToCol.entrySet()) {
             if ("id".equalsIgnoreCase(e.getKey())) {
                 return e.getKey();
@@ -986,6 +1014,28 @@ public class DslQueryService {
 
     private String resolveColumn(String property, EntityInfo info) {
         return resolveColumn(property, null, null, info);
+    }
+
+    /**
+     * Resolve a junction table column name to the corresponding entity column.
+     * Junction columns (junctionDomainColumn / junctionRangeColumn) may store
+     * either a property name (e.g. "id") or a raw column name (e.g. "category_id").
+     * This method tries both, falling back to the entity's identity column.
+     */
+    private String resolveJunctionColumn(String junctionCol, EntityInfo info) {
+        if (junctionCol == null) return findIdColumn(info);
+        // Try as property name first
+        String col = info.propToCol.get(junctionCol);
+        if (col != null) return col;
+        // Try case-insensitive property match
+        for (Map.Entry<String, String> e : info.propToCol.entrySet()) {
+            if (e.getKey().equalsIgnoreCase(junctionCol)) return e.getValue();
+        }
+        // Try as column name (in case it's stored as raw column name in the junction table)
+        String prop = info.colToProp.get(junctionCol);
+        if (prop != null) return junctionCol; // column exists, use as-is
+        // Fall back to entity's identity column (junction references PK)
+        return findIdColumn(info);
     }
 
     private String resolveColumn(String property, List<String> path,
@@ -1113,6 +1163,9 @@ public class DslQueryService {
                     for (ColumnMapping col : tbl.getColumns()) {
                         info.propToCol.put(col.getPropertyName(), col.getColumnName());
                         info.colToProp.put(col.getColumnName(), col.getPropertyName());
+                        if (col.isPrimaryKey()) {
+                            info.primaryKeyColumn = col.getColumnName();
+                        }
                     }
                 }
                 lookup.put(tbl.getClassName(), info);

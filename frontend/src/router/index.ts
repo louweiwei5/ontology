@@ -89,6 +89,64 @@ const router = createRouter({
         sidebar: AppSidebar,
       },
     },
+    // ─── Model Configs ───
+    {
+      path: '/model-configs',
+      name: 'model-config-list',
+      components: {
+        default: () => import('../views/modelConfig/ModelConfigList.vue'),
+        sidebar: AppSidebar,
+      },
+    },
+    {
+      path: '/model-configs/create',
+      name: 'model-config-create',
+      components: {
+        default: () => import('../views/modelConfig/ModelConfigForm.vue'),
+        sidebar: AppSidebar,
+      },
+    },
+    {
+      path: '/model-configs/:id/edit',
+      name: 'model-config-edit',
+      components: {
+        default: () => import('../views/modelConfig/ModelConfigForm.vue'),
+        sidebar: AppSidebar,
+      },
+    },
+    // ─── Agents ───
+    {
+      path: '/agents',
+      name: 'agent-list',
+      components: {
+        default: () => import('../views/agent/AgentList.vue'),
+        sidebar: AppSidebar,
+      },
+    },
+    {
+      path: '/agents/create',
+      name: 'agent-create',
+      components: {
+        default: () => import('../views/agent/AgentForm.vue'),
+        sidebar: AppSidebar,
+      },
+    },
+    {
+      path: '/agents/:id/edit',
+      name: 'agent-edit',
+      components: {
+        default: () => import('../views/agent/AgentForm.vue'),
+        sidebar: AppSidebar,
+      },
+    },
+    {
+      path: '/agents/:id/chat',
+      name: 'agent-chat',
+      components: {
+        default: () => import('../views/agent/AgentChat.vue'),
+        sidebar: AppSidebar,
+      },
+    },
   ],
 })
 

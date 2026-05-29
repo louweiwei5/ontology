@@ -250,6 +250,7 @@ onMounted(load)
               <th>名称</th>
               <th>IRI</th>
               <th>类型</th>
+              <th>PK</th>
               <th>数据类型 / Range</th>
               <th>描述</th>
               <th class="actions">操作</th>
@@ -267,6 +268,10 @@ onMounted(load)
               <td>
                 <span v-if="p.property_type === 'data'" class="tag tag-green">data</span>
                 <span v-else class="tag tag-orange">object</span>
+              </td>
+              <td>
+                <span v-if="p.primary_key === true" class="tag tag-red" style="font-weight: 600;">PK</span>
+                <span v-else style="color: var(--text-muted);">—</span>
               </td>
               <td>
                 <span v-if="p.data_type" class="tag tag-blue">{{ p.data_type }}</span>

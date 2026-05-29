@@ -32,6 +32,7 @@ public class PropertyResponse {
     private String junctionDomainColumn;
     private String junctionRangeColumn;
     private List<Map<String, String>> mappingRules;
+    private Boolean primaryKey;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

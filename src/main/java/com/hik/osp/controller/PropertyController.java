@@ -97,6 +97,7 @@ public class PropertyController {
                 .junctionDomainColumn(entity.getJunctionDomainColumn())
                 .junctionRangeColumn(entity.getJunctionRangeColumn())
                 .mappingRules(mappingRules)
+                .primaryKey(entity.getPrimaryKey())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

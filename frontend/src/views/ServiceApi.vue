@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { listOntologies, exportOwlOntology, type OntologyListItem } from '../api/ontology'
-import { executeSemanticQuery, getTBoxJson, type SemanticQueryResponse } from '../api/query'
+import { executeDslQuery, getTBoxJson, type SemanticQueryResponse } from '../api/query'
 
 const ontologies = ref<OntologyListItem[]>([])
 const selectedOntologyId = ref('')
 const error = ref('')
-const activeTab = ref<'instance' | 'tbox' | 'owl-export'>('instance')
+const activeTab = ref<'dsl' | 'tbox' | 'owl-export'>('dsl')
 
 onMounted(async () => {
   try {
@@ -19,22 +19,27 @@ onMounted(async () => {
 
 const baseUrl = window.location.origin + '/api/services/semantic-query'
 
-// ── Instance Query ──
-const instanceQuery = ref(`{
-  "type": "instance",
-  "ontology_id": "<本体ID>",
-  "class_name": "Customers",
-  "select": ["customerName", "contactPhone"],
-  "where": [
-    {"field": "customerStatus", "op": "=", "value": "active"}
-  ],
-  "relation": {
-    "property": "place",
-    "select": ["orderNo", "amount"]
+// ── DSL Query ──
+const dslQuery = ref(`{
+  "ontology": {
+    "name": "<本体名称>"
   },
-  "limit": 10
+  "query": {
+    "target": "Orders",
+    "select": ["orderNumber", "orderDate", "totalAmount"],
+    "filter": {
+      "logic": "AND",
+      "conditions": [
+        {"field": "orderStatus", "operator": "EQ", "value": "completed"}
+      ]
+    },
+    "pagination": {
+      "page": 1,
+      "size": 10
+    }
+  }
 }`)
-const instanceOutput = ref<SemanticQueryResponse | null>(null)
+const dslOutput = ref<SemanticQueryResponse | null>(null)
 
 // ── TBox ──
 const tboxJson = ref<SemanticQueryResponse | null>(null)
@@ -45,20 +50,24 @@ const owlExportFormat = ref<'rdf-xml' | 'turtle'>('rdf-xml')
 
 const loading = ref(false)
 
-async function tryInstanceQuery() {
+async function tryDslQuery() {
   if (!selectedOntologyId.value) return
   loading.value = true; error.value = ''
   try {
     let body: any
     try {
-      body = JSON.parse(instanceQuery.value)
+      body = JSON.parse(dslQuery.value)
     } catch {
       error.value = 'JSON 格式错误，请检查'
       loading.value = false
       return
     }
-    body.ontology_id = selectedOntologyId.value
-    instanceOutput.value = await executeSemanticQuery(body)
+    // Auto-fill ontology name from selected ontology
+    const onto = ontologies.value.find(o => o.id === selectedOntologyId.value)
+    if (onto && body.ontology) {
+      body.ontology.name = onto.name
+    }
+    dslOutput.value = await executeDslQuery(body)
   } catch (e: any) {
     error.value = e.response?.data?.detail || e.message
   } finally { loading.value = false }
@@ -120,70 +129,110 @@ async function downloadOwl(format: 'rdf-xml' | 'turtle') {
 
     <!-- Tab bar -->
     <div class="tab-bar">
-      <button :class="['tab-btn', { active: activeTab === 'instance' }]" @click="activeTab = 'instance'">实例查询</button>
+      <button :class="['tab-btn', { active: activeTab === 'dsl' }]" @click="activeTab = 'dsl'">DSL 查询</button>
       <button :class="['tab-btn', { active: activeTab === 'tbox' }]" @click="activeTab = 'tbox'">本体 TBOX</button>
       <button :class="['tab-btn', { active: activeTab === 'owl-export' }]" @click="activeTab = 'owl-export'">OWL 导出</button>
     </div>
 
-    <!-- ═══════════════ INSTANCE QUERY ═══════════════ -->
-    <div v-if="activeTab === 'instance'" class="tab-content">
+    <!-- ═══════════════ DSL QUERY ═══════════════ -->
+    <div v-if="activeTab === 'dsl'" class="tab-content">
       <!-- Interface doc -->
       <div class="card">
         <div class="card-header">
           <span class="method post">POST</span>
-          <code class="ep">/query</code>
+          <code class="ep">/dsl/query</code>
         </div>
         <div class="api-section">
           <h4 class="sec-title">接口说明</h4>
-          <p class="sec-body">统一的语义查询接口。使用 JSON 格式输入输出，支持实例数据查询和可选的关联查询（替代旧版 DSL + 实体关系查询）。</p>
+          <p class="sec-body">DSL 语义查询引擎，基于本体模型将 JSON DSL 转换为 SQL 执行。支持投影、过滤、关联查询（JOIN）、分页、聚合函数。</p>
 
-          <h4 class="sec-title">请求体结构</h4>
+          <h4 class="sec-title">请求体结构（完整模板）</h4>
           <pre class="code-block">{
-  "type": "instance",                              // 查询类型
-  "ontology_id": "string",                         // 本体 ID
-  "class_name": "string",                          // 查询的类名
-  "select": ["prop1", "prop2"],                    // 选查的属性（选填）
-  "where": [                                       // 过滤条件（选填）
-    {"field": "prop", "op": "=", "value": "val"}
-  ],
-  "relation": {                                    // 关联查询（选填）
-    "property": "relationProp",                    // 对象属性名
-    "select": ["targetProp1"]                      // 目标类属性（选填）
+  "ontology": {                        // 本体标识（必填）
+    "name": "string",                  //   本体名称（必填）
+    "namespace": "string",             //   命名空间（选填）
+    "version": "string"                //   版本号（选填）
   },
-  "limit": 100,                                    // 限制行数（选填）
-  "offset": 0                                      // 偏移量（选填）
+  "query": {
+    "target": "string",                // 查询目标类名（必填）
+    "select": [                        // 选择字段（选填，默认返回全部字段）
+      "fieldName",                     //   直接字段名
+      {                                //   或对象 —— 关联查询
+        "relation": "relationName",    //     对象属性名
+        "nested_fields": [             //     展开的嵌套字段
+          "field1",
+          { "relation": "subRel", "nested_fields": ["subField1"] }
+        ]
+      }
+    ],
+    "filter": {                        // 过滤条件（选填）
+      "logic": "AND",                  //   逻辑：AND | OR
+      "conditions": [
+        {                              //   简单条件：
+          "field": "fieldName",        //     字段名
+          "operator": "EQ",            //     操作符
+          "value": "value"             //     值
+        },
+        {                              //   或嵌套条件组：
+          "logic": "OR",
+          "conditions": [ ... ]
+        }
+      ]
+    },
+    "pagination": {                    // 分页（选填）
+      "page": 1,                       //   页码，从 1 开始
+      "size": 10                       //   每页条数
+    }
+  }
 }</pre>
 
-          <h4 class="sec-title">支持的操作符 (op)</h4>
-          <pre class="code-block">=   !=   >   <   >=   <=   LIKE   NOT LIKE   IN</pre>
+          <h4 class="sec-title">支持的操作符 (operator)</h4>
+          <pre class="code-block">EQ    NEQ    GT    GTE    LT    LTE    IN    NOT_IN
+BETWEEN    LIKE    CONTAINS    STARTS_WITH    ENDS_WITH
+IS_NULL    IS_NOT_NULL</pre>
+
+          <h4 class="sec-title">关联查询（relation）</h4>
+          <p class="sec-body">在 select 中使用对象（relation + nested_fields）可以沿着对象属性跨表关联查询，例如查 Orders 时同时展示关联的 Customer 名称。支持多级嵌套（如 Orders → Customer → Region）。</p>
 
           <h4 class="sec-title">请求示例</h4>
-          <pre class="code-block">curl -X POST {{ baseUrl }}/query \
+          <pre class="code-block">curl -X POST {{ baseUrl }}/dsl/query \
   -H "Content-Type: application/json" \
   -d '{
-    "type": "instance",
-    "ontology_id": "ba517df8-...",
-    "class_name": "Customers",
-    "select": ["customerName", "contactPhone"],
-    "where": [{"field": "customerStatus", "op": "=", "value": "active"}],
-    "relation": {"property": "place", "select": ["orderNo", "amount"]},
-    "limit": 10
+    "ontology": { "name": "CustomerService" },
+    "query": {
+      "target": "Orders",
+      "select": [
+        "orderNumber",
+        "orderDate",
+        "totalAmount",
+        { "relation": "customer", "nested_fields": ["customerName", "contactPhone"] }
+      ],
+      "filter": {
+        "logic": "AND",
+        "conditions": [
+          { "field": "orderStatus", "operator": "EQ", "value": "completed" },
+          { "field": "totalAmount", "operator": "GT", "value": 1000 }
+        ]
+      },
+      "pagination": { "page": 1, "size": 10 }
+    }
   }'</pre>
 
           <h4 class="sec-title">响应结构</h4>
           <pre class="code-block">{
-  "type": "instance",
-  "class_name": "Customers",
-  "relation": {
-    "property": "place",
-    "class": "Orders",
-    "columns": ["orderNo", "amount"]
-  },
-  "columns": ["customerName", "contactPhone", "orderNo", "amount"],
-  "rows": [
-    {"customerName": "张三", "contactPhone": "138...", "orderNo": "ORD001", "amount": 299.0}
+  "columns": ["字段1", "字段2", ...],         // 列名列表（属性名）
+  "rows": [                                    // 数据行（平铺模式）
+    { "字段1": "值", "字段2": "值", ... }
   ],
-  "total": 1
+  "data": [                                    // 嵌套数据（关联查询时存在）
+    { "字段1": "值", ..., "relationName": [
+        { "子字段1": "值", ... }
+      ]
+    }
+  ],
+  "total": 100,                                // 总记录数
+  "message": "Query executed successfully",     // 执行信息
+  "sql": "SELECT ..."                          // 生成的 SQL（用于诊断）
 }</pre>
         </div>
       </div>
@@ -193,120 +242,52 @@ async function downloadOwl(format: 'rdf-xml' | 'turtle') {
         <div class="card-header"><h4 style="margin:0;">在线测试</h4></div>
         <div class="api-section">
           <div class="form-group">
-            <label>请求体 (JSON)</label>
-            <textarea v-model="instanceQuery" class="form-input code-input" rows="8"></textarea>
+            <label>请求体 (JSON DSL)</label>
+            <textarea v-model="dslQuery" class="form-input code-input" rows="10"></textarea>
           </div>
-          <div class="hint" style="margin-bottom: 12px;">提示：替换 ontology_id 为实际值，修改 class_name 和字段名后测试</div>
-          <button class="btn btn-primary" :disabled="loading" @click="tryInstanceQuery">
+          <div class="hint" style="margin-bottom: 12px;">提示：选择上方本体后发送请求，系统会自动填入本体名称。DSL 中的 target 需为本体中的类名。</div>
+          <button class="btn btn-primary" :disabled="loading" @click="tryDslQuery">
             {{ loading ? '请求中...' : '发送请求' }}
           </button>
 
-          <div v-if="instanceOutput" class="test-result">
-            <div class="result-label">响应结果（共 {{ instanceOutput.total }} 行）</div>
-            <div v-if="instanceOutput.relation" class="result-label" style="font-weight:400;font-size:12px;">
-              关联: {{ instanceOutput.relation.property }} → {{ instanceOutput.relation.class }}
+          <div v-if="dslOutput" class="test-result">
+            <div class="result-label">
+              响应结果
+              <span v-if="dslOutput.total != null" style="font-weight:400;font-size:12px;color:var(--text-muted);">
+                — 共 {{ dslOutput.total }} 条记录
+              </span>
             </div>
-            <div class="table-wrap">
+            <div v-if="dslOutput.message" class="result-label" style="font-weight:400;font-size:12px;color:var(--text-muted);">
+              {{ dslOutput.message }}
+            </div>
+            <div v-if="dslOutput.sql" class="result-label" style="font-weight:400;font-size:12px;">
+              <details>
+                <summary style="cursor:pointer;color:var(--text-muted);font-size:12px;">生成的 SQL</summary>
+                <pre style="margin-top:6px;padding:10px;background:#1e293b;color:#e2e8f0;border-radius:4px;font-size:12px;overflow-x:auto;">{{ dslOutput.sql }}</pre>
+              </details>
+            </div>
+
+            <!-- Flat result table (rows) -->
+            <div v-if="dslOutput.rows && dslOutput.rows.length > 0" class="table-wrap">
               <table>
-                <thead><tr><th v-for="col in instanceOutput.columns" :key="col">{{ col }}</th></tr></thead>
+                <thead><tr><th v-for="col in dslOutput.columns" :key="col">{{ col }}</th></tr></thead>
                 <tbody>
-                  <tr v-for="(row, i) in instanceOutput.rows" :key="i">
-                    <td v-for="col in instanceOutput.columns" :key="col">{{ row[col] ?? 'NULL' }}</td>
-                  </tr>
-                  <tr v-if="instanceOutput.rows.length === 0">
-                    <td :colspan="instanceOutput.columns.length" style="text-align:center;color:var(--text-muted);">无结果</td>
+                  <tr v-for="(row, i) in dslOutput.rows" :key="i">
+                    <td v-for="col in dslOutput.columns" :key="col">{{ row[col] ?? 'NULL' }}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
+
+            <!-- Nested result (data) -->
+            <div v-else-if="dslOutput.data && dslOutput.data.length > 0">
+              <div v-for="(item, i) in dslOutput.data" :key="i" class="nested-row">
+                <pre class="pre-wrap">{{ JSON.stringify(item, null, 2) }}</pre>
+              </div>
+            </div>
+
+            <div v-else style="padding:16px;text-align:center;color:var(--text-muted);">无结果</div>
           </div>
-        </div>
-      </div>
-
-      <!-- Legacy DSL info -->
-      <div class="card" style="border-left: 3px solid var(--text-muted);">
-        <div class="api-section">
-          <h4 class="sec-title" style="color: var(--text-muted);">旧版接口（已废弃）</h4>
-          <p class="sec-body" style="font-size:13px;">
-            <code>POST /dsl-query</code> 和 <code>POST /entity-relations</code> 已合并到 <code>POST /query</code> 中。
-            旧接口保留兼容，但建议统一使用 <code>/query</code>。
-          </p>
-        </div>
-      </div>
-
-      <!-- DSL Query -->
-      <div class="card">
-        <div class="card-header">
-          <span class="method post">POST</span>
-          <code class="ep">/api/dsl/query</code>
-        </div>
-        <div class="api-section">
-          <h4 class="sec-title">接口说明</h4>
-          <p class="sec-body">DSL 查询引擎。支持投影(projection)、过滤(filters)、关联查询(traversal/JOIN)、排序(orderBy)、分页(pagination)、去重(distinct)和聚合函数。</p>
-
-          <h4 class="sec-title">请求体结构</h4>
-          <pre class="code-block">{
-  "ontology_id": "string, 本体ID",
-  "query": {
-    "subject": {
-      "entity": "string, 主查询实体名（必填）",
-      "alias": "string, 别名（可选）"
-    },
-    "projection": [
-      {
-        "entity": "string, 实体名（默认subject）",
-        "property": "string, 属性名（必填）",
-        "alias": "string, 列别名",
-        "aggregation": "COUNT|SUM|AVG|MIN|MAX|COUNT_DISTINCT"
-      }
-    ],
-    "filters": {
-      "logic": "AND|OR",
-      "conditions": [
-        {
-          "entity": "string, 实体名",
-          "property": "string, 属性名",
-          "operator": "EQ|NEQ|GT|GTE|LT|LTE|IN|NOT_IN|BETWEEN|CONTAINS|STARTS_WITH|ENDS_WITH|IS_NULL|IS_NOT_NULL",
-          "value": "any",
-          "valueType": "STRING|NUMBER|DATE|BOOLEAN"
-        }
-      ],
-      "groups": [{ "logic": "AND|OR", "conditions": [...] }]
-    },
-    "traversal": [
-      {
-        "from": "string, 起始实体",
-        "to": "string, 目标实体",
-        "relation": "string, 对象属性名",
-        "direction": "OUT|IN|BOTH",
-        "optional": false
-      }
-    ],
-    "orderBy": [{ "property": "string", "direction": "ASC|DESC" }],
-    "pagination": { "page": 1, "pageSize": 10 },
-    "distinct": false
-  }
-}</pre>
-
-          <h4 class="sec-title">请求示例</h4>
-          <pre class="code-block">curl -X POST http://localhost:8081/api/dsl/query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "ontology_id": "本体ID",
-    "query": {
-      "subject": { "entity": "Product" },
-      "projection": [
-        { "property": "name" },
-        { "entity": "ProductCategory", "property": "name", "alias": "category" }
-      ],
-      "traversal": [
-        { "from": "Product", "to": "ProductCategory",
-          "relation": "belongTo", "direction": "OUT" }
-      ],
-      "pagination": { "limit": 5 },
-      "orderBy": [{ "property": "name", "direction": "ASC" }]
-    }
-  }'</pre>
         </div>
       </div>
     </div>
@@ -554,5 +535,19 @@ curl {{ baseUrl }}/export/ba517df8-.../owl?format=turtle</pre>
   align-items: center;
   gap: 8px;
   margin-left: auto;
+}
+.pre-wrap {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.5;
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 4px 0;
+}
+.nested-row + .nested-row {
+  margin-top: 8px;
 }
 </style>

@@ -58,6 +58,7 @@ export interface PropertyResponse {
   junction_domain_column: string | null
   junction_range_column: string | null
   mapping_rules: MappingRule[] | null
+  primary_key: boolean | null
   created_at: string
   updated_at: string
 }
